@@ -10,8 +10,6 @@ use tokio::net::tcp::{OwnedReadHalf, OwnedWriteHalf};
 use crate::state::State;
 use crate::events::handle_email;
 
-const ADDRESS: &str = "0.0.0.0:2525";
-
 pub(crate) async fn send_response(writer: &mut OwnedWriteHalf, data: &[u8]) -> Result<()> {
 
     #[cfg(feature = "debug")]
@@ -144,9 +142,9 @@ async fn main() -> Result<()> {
 
     dotenv().ok();
 
-    let listener = TcpListener::bind(ADDRESS).await?;
-    let state = State::new();
-    println!("Started listening to: {ADDRESS}");
+    let (state, bind_addr) = State::new();
+    let listener = TcpListener::bind(&bind_addr).await?;
+    println!("Started listening to: {bind_addr}");
 
     loop {
         let (socket, addr) = listener.accept().await?;
