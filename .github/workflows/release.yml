@@ -1,0 +1,101 @@
+name: build
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build_linux64:
+    runs-on: ubuntu-latest
+    container: quay.io/pypa/manylinux2014_x86_64
+    steps:
+      - uses: actions/checkout@v1
+      - name: "Install Rust"
+        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-host x86_64-unknown-linux-gnu -y
+      - name: Build
+        run: |
+          source $HOME/.cargo/env
+          cargo build --verbose --bin cctv-alerts --target x86_64-unknown-linux-gnu --release
+      - name: Strip debug info
+        run: strip target/x86_64-unknown-linux-gnu/release/cctv-alerts
+      - name: Make dir
+        run: mkdir target/x86_64-unknown-linux-gnu/release/releasedir
+      - name: Rename binary
+        run: mv target/x86_64-unknown-linux-gnu/release/cctv-alerts target/x86_64-unknown-linux-gnu/release/releasedir/cctv-alerts_linux64
+      - name: Release
+        uses: fnkr/github-action-ghr@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GHR_PATH: target/x86_64-unknown-linux-gnu/release/releasedir
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build_linux32:
+    runs-on: ubuntu-latest
+    container: quay.io/pypa/manylinux2014_i686
+    defaults:
+      run:
+        shell: sh
+    steps:
+      - uses: actions/checkout@v1
+      - name: "Install Rust"
+        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-host i686-unknown-linux-gnu -y
+      - name: Build
+        run: |
+          source $HOME/.cargo/env
+          cargo build --verbose --bin cctv-alerts --target i686-unknown-linux-gnu --release
+      - name: Strip debug info
+        run: strip target/i686-unknown-linux-gnu/release/cctv-alerts
+      - name: Make dir
+        run: mkdir target/i686-unknown-linux-gnu/release/releasedir
+      - name: Rename binary
+        run: mv target/i686-unknown-linux-gnu/release/cctv-alerts target/i686-unknown-linux-gnu/release/releasedir/cctv-alerts_linux32
+      - name: Release
+        uses: fnkr/github-action-ghr@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GHR_PATH: target/i686-unknown-linux-gnu/release/releasedir
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build_win32:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: i686-pc-windows-msvc
+          override: true
+      - name: Build
+        run: cargo build --verbose --bin cctv-alerts --target i686-pc-windows-msvc --release
+      - name: Rename binary
+        run: ren target/i686-pc-windows-msvc/release/cctv-alerts.exe cctv-alerts_win32.exe
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: target/i686-pc-windows-msvc/release/cctv-alerts_win32.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build_win64:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-pc-windows-msvc
+          override: true
+      - name: Build
+        run: cargo build --verbose --bin cctv-alerts --target x86_64-pc-windows-msvc --release
+      - name: Rename binary
+        run: ren target/x86_64-pc-windows-msvc/release/cctv-alerts.exe cctv-alerts_win64.exe
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: target/x86_64-pc-windows-msvc/release/cctv-alerts_win64.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
