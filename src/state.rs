@@ -10,6 +10,10 @@ use crate::events::AlarmEvent;
 
 const WEBHOOK_TIMEOUT: Duration = Duration::from_secs(5);
 
+fn base64_encode(v: String) -> String {
+    engine::general_purpose::STANDARD.encode(v)
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct State {
     username: String,
@@ -21,17 +25,19 @@ pub(crate) struct State {
     http_client: Arc<Client>
 }
 impl State {
-    pub fn new() -> Self {
-        let encode = |v| engine::general_purpose::STANDARD.encode(v);
-        State {
-            username: encode(var("CCTV_USERNAME").expect("Missing CCTV username env var!")),
-            password: encode(var("CCTV_PASSWORD").expect("Missing CCTV password env var!")),
-            webhook_url: var("CCTV_WEBHOOK_URL").expect("Missing CCTV webhook URL env var!"),
-            webhook_key: var("CCTV_WEBHOOK_KEY").expect("Missing CCTV webhook key env var!"),
-            alarm_subject: var("CCTV_ALARM_SUBJECT").ok(),
-            accepted_ip: var("CCTV_ALARM_IP").ok().and_then(|ip_string| IpAddr::from_str(&ip_string).ok()),
-            http_client: Arc::new(Client::new())
-        }
+    pub fn new() -> (Self, SocketAddr) {
+        (
+            State {
+                username: base64_encode(var("CCTV_USERNAME").expect("Missing CCTV_USERNAME")),
+                password: base64_encode(var("CCTV_PASSWORD").expect("Missing CCTV_PASSWORD")),
+                webhook_url: var("CCTV_WEBHOOK_URL").expect("Missing CCTV_WEBHOOK_URL"),
+                webhook_key: var("CCTV_WEBHOOK_KEY").expect("Missing CCTV_WEBHOOK_KEY"),
+                alarm_subject: var("CCTV_ALARM_SUBJECT").ok(),
+                accepted_ip: var("CCTV_ALARM_IP").ok().and_then(|ip| IpAddr::from_str(&ip).ok()),
+                http_client: Arc::new(Client::new())
+            },
+            var("CCTV_BIND_ADDR").expect("Missing CCTV_BIND_ADDR").parse::<SocketAddr>().expect("CCTV_BIND_ADDR is invalid")
+        )
     }
 
     #[inline]
